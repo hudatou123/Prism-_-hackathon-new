@@ -12,9 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import os
-os.environ['PRISM_PIPELINE_MODE'] = 'mock'  # Ensure we don't hit real pipeline
 
-from prism.grounding import search, TAVILY_API_KEY
+from prism.grounding import search
+from prism.settings import get_settings
+
+TAVILY_API_KEY = get_settings().tavily_api_key
 
 
 async def burst_search(query: str, index: int) -> dict:
@@ -45,9 +47,9 @@ async def main():
     print("=" * 60)
 
     if not TAVILY_API_KEY:
-        print("⚠️  TAVILY_API_KEY not set — testing mock provider only")
-    else:
-        print(f"✓ TAVILY_API_KEY found — testing live provider")
+        print("TAVILY_API_KEY is not set in backend/.env; live burst test skipped")
+        raise SystemExit(2)
+    print("TAVILY_API_KEY found — testing live provider")
 
     print(f"\nFiring 10 parallel search calls...")
     print("-" * 60)

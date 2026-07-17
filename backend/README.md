@@ -1,198 +1,65 @@
-# Prism Backend
+# Prism backend
 
-Live fact-checking agent backend — Person D's ownership (grounding + synthesizer + FastAPI/SSE + integration).
-
-## Overview
-
-Prism decomposes controversies into fixed facets, runs adversarial Pro/Con agents grounded in real web evidence, and streams verdicts progressively via SSE. This backend provides:
-
-1. **Grounding layer** — pluggable search() + fetch() with disk caching
-2. **Verdict Synthesizer** — aggregates per-facet results into final verdict with transparent confidence
-3. **FastAPI + SSE backend** — streaming seam between pipeline and frontend
-4. **Integration harness** — mock mode for early parallel development, real pipeline integration ready
+FastAPI/SSE backend for the Truthscope UI. Python 3.11+ is required.
 
 ## Setup
 
-### Prerequisites
-
-- Python 3.11+
-- pip
-
-### Installation
-
 ```bash
 cd backend
+python3 -m venv .venv
+. .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### Configuration
-
-Copy `.env.example` to `.env`:
-
-```bash
 cp .env.example .env
-```
-
-Edit `.env` to configure:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TAVILY_API_KEY` | (empty) | Optional — falls back to mock search if not set |
-| `PRISM_PIPELINE_MODE` | `mock` | Pipeline mode: `mock` or `real` |
-| `HOST` | `0.0.0.0` | Server bind address |
-| `PORT` | `8000` | Server port |
-
-## Running
-
-Start the development server:
-
-```bash
-uvicorn prism.main:app --reload --port 8000
-```
-
-Or in production mode:
-
-```bash
-uvicorn prism.main:app --host 0.0.0.0 --port 8000
-```
-
-## API Endpoints
-
-### `GET /health`
-
-Health check.
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "pipeline_mode": "mock"
-}
-```
-
-### `POST /analyze`
-
-SSE stream endpoint. Streams fact-checking results progressively.
-
-**Request:**
-```bash
-curl -N -X POST http://localhost:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "Did Meta lay off 5% of its workforce?"}'
-```
-
-**Response:** `Content-Type: text/event-stream`
-
-Event sequence:
-1. `provisional_verdict` — fast read within ~3s
-2. `facet_ready` × 3 — one per facet as they resolve
-3. `final_verdict` — synthesized after all facets
-4. `done` — stream complete
-
-Example:
-```
-event: provisional_verdict
-data: {"verdict": "Likely true, scale disputed", "reasoning": "...", "sources_so_far": 4}
-
-event: facet_ready
-data: {"facet_id": "fact", "status": "confirmed", ...}
-
-event: facet_ready
-data: {"facet_id": "scale", "status": "disputed", ...}
-
-event: facet_ready
-data: {"facet_id": "stakeholder_reactions", "status": "mostly_confirmed", ...}
-
-event: final_verdict
-data: {"verdict": "MOSTLY TRUE — scale disputed", "confidence_band": "MODERATE", ...}
-
-event: done
-data: {}
-```
-
-### `GET /cache/stats`
-
-Get cache statistics.
-
-### `POST /cache/clear`
-
-Clear all caches (dev only).
-
-## Testing
-
-Run the full test suite:
-
-```bash
-pytest -v
-```
-
-Run specific test file:
-
-```bash
-pytest tests/test_schema.py -v
-```
-
-Run with coverage:
-
-```bash
-pytest --cov=prism --cov-report=html
-```
-
-## Scripts
-
-### Warm Cache
-
-Pre-warm cache with hero topics for demo:
-
-```bash
-python scripts/warm_cache.py
-```
-
-### Burst Test
-
-Test search provider rate limit and latency:
-
-```bash
-python scripts/burst_test.py
-```
-
-## Pipeline Mode Switching
-
-The backend supports two pipeline modes:
-
-- **`mock`** (default) — Uses realistic fake data, unblocks frontend development
-- **`real`** — Integrates with Person A's RocketRide pipeline (stub ready)
-
-Switch via environment variable:
-
-```bash
-export PRISM_PIPELINE_MODE=real
 uvicorn prism.main:app --reload
 ```
 
-## Architecture
+Configuration is loaded centrally from `backend/.env`. The secure runtime default is `PRISM_ENV=production`; the example file explicitly selects development for local use. `PRISM_PIPELINE_MODE` accepts only:
 
+- `auto` (default): `agent` when Anthropic and Tavily keys are present, `tavily` when only Tavily is present, otherwise `mock`.
+- `mock`: deterministic no-network demo, about 12.5 seconds; settled Earth claims short-circuit in about 3 seconds.
+- `tavily`: deterministic, parallel three-facet search and exact fetched-page quote checks. A Tavily key is required and live failures never fall back to mock data.
+- `agent`: a lazy Anthropic early-read adapter plus the same hardened, exact-quote Tavily evidence path. Both keys are required.
+
+`PRISM_CORS_ORIGINS` is a comma-separated list of exact origins. `*` is rejected. `POST /cache/clear` is available only when `PRISM_ENV` is `development`, `dev`, `local`, or `test`.
+
+## API
+
+- `GET /health` returns the resolved pipeline mode.
+- `GET /analyze?claim=...` supports the browser `EventSource` client.
+- `POST /analyze` accepts `{"topic":"..."}`.
+- `GET /cache/stats` returns local cache metrics.
+- `POST /cache/clear` clears caches in development only.
+
+`/analyze` emits named SSE events: `provisional`, `facet`, `counts`, `final`, and `done`. Every JSON payload has a matching `type` discriminator; errors use a generic `error` payload without internal exception details. Facet payloads follow the UI's camelCase contract, including `stakeholder_reactions` → `stakeholders`, verified-only flattened evidence, deterministic evidence IDs, `conEmpty`, `conSearched`, and per-facet `sourcesExamined`/`quotesVerified`/`quotesTotal`. A `counts` event follows every facet with cumulative values.
+
+Live fetching accepts only public HTTP(S) targets, resolves and rejects private/local/link-local/metadata addresses, validates each redirect target, and enforces response type, size, redirect, and timeout limits.
+
+## Tests
+
+Tests require no API keys and make no network requests:
+
+```bash
+cd backend
+pytest -q
 ```
-prism/
-├── schema.py           # Pydantic data contract
-├── cache.py            # Disk-caching decorator
-├── grounding.py        # search() + fetch() with providers
-├── quote_verify.py     # Deterministic substring match
-├── synthesizer.py      # Verdict aggregation + confidence
-├── mock_pipeline.py    # Fake pipeline for parallel dev
-├── real_pipeline.py    # Real pipeline stub (awaiting Person A)
-├── pipeline_router.py  # Mode switching
-└── main.py             # FastAPI + SSE endpoints
+
+No RocketRide integration is claimed or provided.
+
+## RocketRide Cloud connectivity
+
+The repository includes `pipelines/hello.pipe` and `scripts/test_rocketride.py` for an authenticated Cloud execution check. This verifies the key, WebSocket connection, upload, send, response, and termination lifecycle; it does not claim the local fact-checking graph has already been converted to RocketRide nodes.
+
+After creating `backend/.env`, set:
+
+```dotenv
+ROCKETRIDE_URI=https://api.rocketride.ai
+ROCKETRIDE_APIKEY=your-token-here
 ```
 
-## Development
+Then run from `backend/` with the virtual environment active:
 
-- All code follows Pydantic v2 schema (data contract with teammates)
-- Quote verification is deterministic (zero LLM involvement)
-- Cache hits disk for all search/fetch calls during development
-- CORS enabled for `localhost:3000` frontend (hackathon scope)
-- Structured logging with request IDs
+```bash
+python scripts/test_rocketride.py
+```
 
-## License
-
-Hackathon project — see team for details.
+The variable names and secure endpoint follow the [RocketRide Cloud documentation](https://docs.rocketride.org/cloud) and the smoke script follows the [Python SDK lifecycle](https://docs.rocketride.org/develop/python).

@@ -1,29 +1,22 @@
-"""
-Pipeline Router — Single switching point between mock and real pipeline.
-Controlled by env var PRISM_PIPELINE_MODE = "mock" | "real" (default "mock").
-"""
+"""Validated switching point for mock, deterministic Tavily, and agent modes."""
 
-import os
-from typing import AsyncIterator, Union
-from .schema import ProvisionalVerdict, FacetResult
-from . import mock_pipeline, real_pipeline
+from __future__ import annotations
 
-PIPELINE_MODE = os.getenv("PRISM_PIPELINE_MODE", "mock")
+from typing import AsyncIterator
+
+from .schema import FacetResult, ProvisionalVerdict
+from .settings import get_settings
 
 
-async def run_pipeline(topic: str) -> AsyncIterator[Union[ProvisionalVerdict, FacetResult]]:
-    """
-    Yields items in this order (streaming, not batch):
-      1. Exactly one ProvisionalVerdict (within ~3 seconds)
-      2. One FacetResult per facet (3 total for MVP), as each resolves
-
-    Final verdict is NOT yielded here — the main.py SSE endpoint computes it
-    after the async iterator exhausts.
-    """
-    if PIPELINE_MODE == "real":
-        async for item in real_pipeline.run(topic):
-            yield item
+async def run_pipeline(topic: str) -> AsyncIterator[ProvisionalVerdict | FacetResult]:
+    mode = get_settings().pipeline_mode
+    if mode == "mock":
+        from .mock_pipeline import run
+    elif mode == "tavily":
+        from .tavily_pipeline import run
     else:
-        # Default to mock
-        async for item in mock_pipeline.run(topic):
-            yield item
+        # Keeps the optional Anthropic dependency and client construction off mock/Tavily paths.
+        from .agent_pipeline import run
+
+    async for item in run(topic):
+        yield item

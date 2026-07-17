@@ -73,6 +73,9 @@ def test_facet_result():
     assert facet.facet_id == "fact"
     assert facet.status == "confirmed"
     assert facet.sources_examined == 10
+    assert facet.quotes_attempted == 0
+    assert facet.con_empty is False
+    assert facet.con_searched == 0
 
 
 def test_provisional_verdict():
@@ -120,10 +123,10 @@ def test_final_verdict():
 def test_sse_event():
     """Test SSEEvent envelope."""
     event = SSEEvent(
-        event="facet_ready",
-        data={"facet_id": "fact"}
+        event="facet",
+        data={"type": "facet", "facet": "fact"}
     )
-    assert event.event == "facet_ready"
+    assert event.event == "facet"
 
 
 def test_analyze_request():

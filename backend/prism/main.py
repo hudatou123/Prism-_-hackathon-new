@@ -1,136 +1,113 @@
-"""
-FastAPI + SSE Backend — streaming seam between pipeline and frontend.
-"""
+"""FastAPI application exposing the frontend-compatible named SSE stream."""
 
-import os
-import uuid
+from __future__ import annotations
+
+import json
 import logging
-from typing import AsyncIterator
+import uuid
 from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-from .schema import AnalyzeRequest, ProvisionalVerdict, FacetResult, SSEEvent
-from .pipeline_router import run_pipeline, PIPELINE_MODE
-from .synthesizer import synthesize
 from .cache import cache_stats, clear_cache
+from .pipeline_router import run_pipeline
+from .schema import AnalyzeRequest, FacetResult, ProvisionalVerdict
+from .settings import get_settings
+from .synthesizer import synthesize
+from .ui_stream import CumulativeCounts, done_event, facet_event, final_event, provisional_event
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Lifespan events."""
-    logger.info(f"Prism backend starting — pipeline_mode={PIPELINE_MODE}")
+async def lifespan(_: FastAPI):
+    logger.info("Prism backend starting — pipeline_mode=%s", settings.pipeline_mode)
     yield
     logger.info("Prism backend shutting down")
 
 
-app = FastAPI(
-    title="Prism Backend",
-    description="Live fact-checking agent — Person D's ownership",
-    version="0.1.0",
-    lifespan=lifespan
-)
-
-# Enable CORS (hackathon scope — allow all)
+app = FastAPI(title="Prism Backend", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Accept"],
 )
 
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {
-        "status": "ok",
-        "pipeline_mode": PIPELINE_MODE
-    }
+    return {"status": "ok", "pipeline_mode": settings.pipeline_mode}
 
 
 @app.get("/cache/stats")
 async def get_cache_stats():
-    """Return cache statistics."""
     return cache_stats()
 
 
 @app.post("/cache/clear")
 async def clear_all_cache():
-    """Clear all caches (dev only)."""
+    if not settings.is_development:
+        raise HTTPException(status_code=403, detail="Cache clearing is disabled")
     clear_cache()
     return {"status": "cleared"}
 
+def _named_event(name: str, payload: dict) -> dict[str, str]:
+    return {"event": name, "data": json.dumps(payload, separators=(",", ":"))}
+
+
+def _stream(topic: str, req: Request) -> EventSourceResponse:
+    request_id = uuid.uuid4().hex[:8]
+
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
+        facets: list[FacetResult] = []
+        counts = CumulativeCounts()
+        try:
+            if await req.is_disconnected():
+                return
+            async for item in run_pipeline(topic):
+                if await req.is_disconnected():
+                    logger.info("[%s] client disconnected", request_id)
+                    return
+                if isinstance(item, ProvisionalVerdict):
+                    yield _named_event("provisional", provisional_event(topic, item))
+                elif isinstance(item, FacetResult):
+                    facets.append(item)
+                    yield _named_event("facet", facet_event(item))
+                    if await req.is_disconnected():
+                        return
+                    yield _named_event("counts", counts.add(item))
+
+            if await req.is_disconnected():
+                return
+            if not facets:
+                raise RuntimeError("pipeline returned no facets")
+            yield _named_event("final", final_event(synthesize(facets)))
+            if not await req.is_disconnected():
+                yield _named_event("done", done_event())
+        except Exception:
+            logger.exception("[%s] analysis failed", request_id)
+            if not await req.is_disconnected():
+                yield _named_event("error", {"type": "error", "message": "Analysis failed"})
+
+    return EventSourceResponse(
+        event_generator(),
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
 
 @app.post("/analyze")
-async def analyze(request: AnalyzeRequest, req: Request):
-    """
-    SSE stream endpoint. Yields:
-    - provisional_verdict (within ~3s)
-    - facet_ready × 3 (as each resolves)
-    - final_verdict (computed after all facets)
-    - done
-    """
-    request_id = str(uuid.uuid4())[:8]
-    logger.info(f"[{request_id}] Analyzing topic: {request.topic}")
+async def analyze(body: AnalyzeRequest, req: Request):
+    return _stream(body.topic, req)
 
-    async def event_generator() -> AsyncIterator[dict]:
-        try:
-            # Collect facets as they arrive
-            collected_facets = []
 
-            async for item in run_pipeline(request.topic):
-                if isinstance(item, ProvisionalVerdict):
-                    logger.info(f"[{request_id}] Provisional verdict ready")
-                    yield {
-                        "event": "provisional_verdict",
-                        "data": item.model_dump_json()
-                    }
-                elif isinstance(item, FacetResult):
-                    logger.info(f"[{request_id}] Facet ready: {item.facet_id}")
-                    collected_facets.append(item)
-                    yield {
-                        "event": "facet_ready",
-                        "data": item.model_dump_json()
-                    }
-
-            # Synthesize final verdict
-            if collected_facets:
-                logger.info(f"[{request_id}] Synthesizing final verdict from {len(collected_facets)} facets")
-                final_verdict = synthesize(collected_facets)
-                yield {
-                    "event": "final_verdict",
-                    "data": final_verdict.model_dump_json()
-                }
-            else:
-                logger.warning(f"[{request_id}] No facets collected, cannot synthesize")
-                yield {
-                    "event": "error",
-                    "data": '{"message": "No facets returned from pipeline", "recoverable": false}'
-                }
-
-            # Done
-            logger.info(f"[{request_id}] Stream complete")
-            yield {
-                "event": "done",
-                "data": "{}"
-            }
-
-        except Exception as e:
-            logger.error(f"[{request_id}] Error during analysis: {e}", exc_info=True)
-            yield {
-                "event": "error",
-                "data": f'{{"message": "Internal error: {str(e)}", "recoverable": false}}'
-            }
-
-    return EventSourceResponse(event_generator())
+@app.get("/analyze")
+async def analyze_event_source(req: Request, claim: str = Query(..., min_length=1, max_length=500)):
+    """EventSource-compatible form used by the current frontend."""
+    return _stream(claim, req)

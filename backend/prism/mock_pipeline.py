@@ -449,14 +449,36 @@ HERO_TOPICS = {
 
 
 async def run(topic: str) -> AsyncIterator[Union[ProvisionalVerdict, FacetResult]]:
-    """
-    Mock pipeline that yields provisional verdict + 3 facets with realistic timing.
-    """
-    # Match against hero topics (case-insensitive keyword match)
+    """Yield deterministic demo data in about 12.5s (settled Earth in about 3s)."""
     topic_lower = topic.lower()
-    hero_data = None
+    if "earth" in topic_lower and ("round" in topic_lower or "spherical" in topic_lower):
+        await asyncio.sleep(1.0)
+        yield ProvisionalVerdict(
+            verdict="Confirmed by direct observation and measurement",
+            reasoning="This is a settled scientific fact.",
+            sources_so_far=2,
+        )
+        await asyncio.sleep(2.0)
+        yield FacetResult(
+            facet_id="fact",
+            status="confirmed",
+            summary="Direct observation and measurement confirm an oblate sphere.",
+            pro_arguments=[Argument(
+                claim="Earth is an oblate spheroid",
+                quote="Earth is a terrestrial planet. It is small and rocky.",
+                url="https://science.nasa.gov/earth/facts/",
+                source_domain="nasa.gov",
+                quote_verified=True,
+                source_quality="high",
+            )],
+            sources_examined=3,
+            quotes_attempted=1,
+            quotes_verified=1,
+            con_empty=True,
+            con_searched=3,
+        )
+        return
 
-    # Match on keywords for each hero topic
     if "byd" in topic_lower or "tesla" in topic_lower:
         hero_data = HERO_TOPICS["byd tesla"]
     elif "bitcoin" in topic_lower or "etf" in topic_lower:
@@ -465,18 +487,16 @@ async def run(topic: str) -> AsyncIterator[Union[ProvisionalVerdict, FacetResult
         hero_data = HERO_TOPICS["twitter advertisers"]
     elif "gpt" in topic_lower and "5" in topic_lower:
         hero_data = HERO_TOPICS["gpt-5"]
-    elif "meta" in topic_lower or "layoff" in topic_lower:
+    else:
         hero_data = HERO_TOPICS["meta layoff"]
 
-    # Default to generic template if no match
-    if hero_data is None:
-        hero_data = HERO_TOPICS["meta layoff"]  # Use as template
-
-    # Yield provisional verdict after 2-3s
-    await asyncio.sleep(2.5)
+    await asyncio.sleep(2.0)
     yield hero_data["provisional"]
-
-    # Yield facets with staggered timing (5-8s each)
-    for i, facet in enumerate(hero_data["facets"]):
-        await asyncio.sleep(5 + i * 1.5)  # 5s, 6.5s, 8s
-        yield facet
+    for facet in hero_data["facets"]:
+        await asyncio.sleep(3.5)
+        attempted = len(facet.pro_arguments) + len(facet.con_arguments)
+        yield facet.model_copy(update={
+            "quotes_attempted": attempted,
+            "con_empty": not facet.con_arguments,
+            "con_searched": max(1, facet.sources_examined // 3),
+        })

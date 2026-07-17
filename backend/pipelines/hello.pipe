@@ -1,0 +1,20 @@
+{
+  "description": "Truthscope RocketRide Cloud connectivity check",
+  "version": 1,
+  "source": "input",
+  "components": [
+    {
+      "id": "input",
+      "provider": "webhook",
+      "name": "Truthscope smoke input",
+      "config": {}
+    },
+    {
+      "id": "output",
+      "provider": "response",
+      "name": "Truthscope smoke response",
+      "config": { "laneName": "text" },
+      "input": [{ "lane": "text", "from": "input" }]
+    }
+  ]
+}

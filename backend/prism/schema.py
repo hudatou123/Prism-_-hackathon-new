@@ -39,7 +39,10 @@ class FacetResult(BaseModel):
     con_arguments: list[Argument] = Field(default_factory=list,
         description="May be empty; empty list under F4 renders as 'No credible counter-evidence found'")
     sources_examined: int = Field(..., ge=0, description="Actual count, not decorative")
+    quotes_attempted: int = Field(0, ge=0, description="Actual quote checks attempted")
     quotes_verified: int = Field(..., ge=0, description="Actual count of successful quote-grep passes")
+    con_empty: bool = Field(False, description="True only when counter-search ran and verified no counter evidence")
+    con_searched: int = Field(0, ge=0, description="Actual counter-side results examined")
 
 # ---------- Provisional verdict (fast path, produced by A, forwarded by D) ----------
 
@@ -67,7 +70,7 @@ class FinalVerdict(BaseModel):
 
 # ---------- SSE event envelope (D → C) ----------
 
-SSEEventType = Literal["provisional_verdict", "facet_ready", "final_verdict", "error", "done"]
+SSEEventType = Literal["provisional", "facet", "counts", "final", "error", "done"]
 
 class SSEEvent(BaseModel):
     event: SSEEventType
