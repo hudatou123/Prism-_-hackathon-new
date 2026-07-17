@@ -1,0 +1,56 @@
+{
+  "claim": "Did Meta really lay off 5% of its workforce?",
+  "sources": [
+    {
+      "url": "https://reuters.com/business/tech/meta-workforce-reduction-2026",
+      "title": "Meta to cut roughly 5% of staff in performance-based reduction",
+      "snippet": "Meta said it would reduce its workforce by about 5% as part of a performance review cycle.",
+      "published_date": "2026-07-16",
+      "bias": "center",
+      "stance": "support",
+      "page_text": "Meta Platforms said on Wednesday it would cut roughly 5% of its workforce. In an internal memo, CEO Mark Zuckerberg wrote: \"We are reducing our workforce by approximately 5% across affected teams.\" The company employs about 74,000 people, implying a reduction of around 3,700 roles. Analysts noted the cuts were framed as performance-based rather than a broad restructuring."
+    },
+    {
+      "url": "https://sec.gov/filings/meta-8k-2026-07",
+      "title": "Meta Platforms Form 8-K — workforce reduction disclosure",
+      "snippet": "Registrant announced a reduction of approximately 5% of its global workforce.",
+      "published_date": "2026-07-16",
+      "bias": "center",
+      "stance": "support",
+      "page_text": "On July 16, 2026, Meta Platforms, Inc. announced a reduction of approximately 5% of its global workforce. The Company expects to incur charges in connection with this reduction. This filing constitutes the official disclosure of the action described herein."
+    },
+    {
+      "url": "https://techleaks.example.com/meta-internal-numbers",
+      "title": "Leaked internal doc suggests deeper cuts than announced",
+      "snippet": "An internal spreadsheet reviewed by us logs 8-10% in some org charts.",
+      "published_date": "2026-07-17",
+      "bias": "unknown",
+      "stance": "counter",
+      "page_text": "A document circulating internally claims the real figure is closer to 8-10% in certain product orgs. One line reads: \"some teams are seeing 8-10% reductions well beyond the announced 5%.\" The authenticity of the document could not be independently verified and Meta declined to comment."
+    },
+    {
+      "url": "https://layofftracker.example.com/meta",
+      "title": "Layoff tracker logs Meta reductions",
+      "snippet": "Community-sourced tracker logs 4,200 Meta roles affected.",
+      "published_date": "2026-07-17",
+      "bias": "unknown",
+      "stance": "counter",
+      "page_text": "Our community-sourced tracker currently logs 4,200 affected Meta roles, based on self-reports. The tracker notes: \"4,200 roles logged so far, self-reported and unverified.\" Figures typically lag official announcements."
+    },
+    {
+      "url": "https://www.reddit.com/r/technology/comments/metalayoffs2026",
+      "title": "Meta layoffs megathread",
+      "snippet": "Employees and observers react to the 5% reduction announcement.",
+      "published_date": "2026-07-17",
+      "bias": "unknown",
+      "stance": "grassroots",
+      "is_reddit": true,
+      "page_text": "Reddit megathread on the Meta layoffs.",
+      "top_comments": [
+        {"author": "throwaway_meta", "score": 4210, "body": "Got the email this morning. \"Framed as performance but my whole team is gone.\" Brutal."},
+        {"author": "pnw_dev", "score": 2870, "body": "5% official but recruiting and several infra teams look way more than 5% hit."},
+        {"author": "analyst_anon", "score": 1540, "body": "Market reaction muted, stock up premarket. Investors read this as cost discipline."}
+      ]
+    }
+  ]
+}

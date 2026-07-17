@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.prism_cache/
+.DS_Store
