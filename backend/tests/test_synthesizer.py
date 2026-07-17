@@ -94,7 +94,13 @@ def test_empty_list_raises():
 
 
 def test_mostly_confirmed():
-    """Test mostly_confirmed status."""
+    """
+    Test mostly_confirmed status.
+
+    Why MODERATE not HIGH: avg = (0.75 + 0.75 + 1.0) / 3 = 0.833
+    The HIGH threshold is 0.85, so 0.833 falls into MODERATE band.
+    mostly_confirmed scores 0.75, confirmed scores 1.0 per synthesizer.py logic.
+    """
     facets = [
         make_facet("fact", "mostly_confirmed"),
         make_facet("scale", "mostly_confirmed"),

@@ -9,17 +9,26 @@ from .schema import ProvisionalVerdict, FacetResult
 
 async def run(topic: str) -> AsyncIterator[Union[ProvisionalVerdict, FacetResult]]:
     """
-    Real pipeline integration stub. Same signature as mock_pipeline.run.
+    Real pipeline integration — awaiting Person A's RocketRide endpoints.
 
-    TODO: Awaiting Person A's RocketRide pipeline endpoints
-    Need from Person A:
-    - Fast-path endpoint URL (returns ProvisionalVerdict)
-    - Per-facet endpoint URLs (or single endpoint with facet_id param)
+    TODO: Person A must provide:
+    - Fast-path endpoint URL (returns ProvisionalVerdict-compatible response)
+    - Per-facet endpoint URLs (returns FacetResult-compatible responses)
     - Auth mechanism (API key? Bearer token?)
-    - Response format validation (should match FacetResult schema; add adapter here if not)
-    - Error handling strategy
-    - Timeout configuration
-    - Retry policy
+    - Response format (add adapter here if not matching FacetResult schema)
+    - Timeout + retry policy
+
+    Once endpoints exist, replace this body with:
+      1. Fire fast-path call → yield ProvisionalVerdict
+      2. Fire 3 parallel facet calls (Fact, Scale, Stakeholder Reactions)
+      3. As each resolves, yield FacetResult
+    Use httpx.AsyncClient for HTTP; wrap in try/except so a single facet failure
+    doesn't abort the whole stream.
     """
-    raise NotImplementedError("Awaiting Person A's RocketRide pipeline endpoints")
-    yield  # Make this a generator (unreachable but satisfies type checker)
+    raise NotImplementedError(
+        "real_pipeline.run() awaiting Person A's RocketRide endpoints. "
+        "See TODO comment above. Set PRISM_PIPELINE_MODE=mock to use mock data."
+    )
+    # The unreachable yield below is required so Python treats this as an async generator.
+    if False:
+        yield  # type: ignore[unreachable]
