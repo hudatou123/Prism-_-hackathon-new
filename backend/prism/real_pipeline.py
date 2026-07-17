@@ -4,9 +4,12 @@ Transforms Person A's schema to Person D's schema and wraps sync calls in async 
 """
 
 import asyncio
+import logging
 from typing import AsyncIterator, Union
 from urllib.parse import urlparse
 from .schema import ProvisionalVerdict, FacetResult, Argument
+
+logger = logging.getLogger(__name__)
 
 # Import Person A's pipeline (adjust sys.path to find pipeline/ modules)
 import sys
@@ -57,21 +60,40 @@ async def run(topic: str) -> AsyncIterator[Union[ProvisionalVerdict, FacetResult
     facet_ids = ["fact", "scale", "stakeholder_reactions"]
 
     for facet_id in facet_ids:
-        # Build Person A's input
-        facet_query = FacetQuery(
-            facet_name=facet_id,
-            topic=topic,
-            queries=[topic],  # Simple query list — Person A's decomposer would expand this
-            is_settled_fact=False
-        )
+        try:
+            # Build Person A's input
+            facet_query = FacetQuery(
+                facet_name=facet_id,
+                topic=topic,
+                queries=[topic],  # Simple query list — Person A's decomposer would expand this
+                is_settled_fact=False
+            )
 
-        # Run in thread pool (Person A's code is CPU-bound with LLM calls)
-        person_a_result: PersonAFacetResult = await asyncio.to_thread(run_facet, facet_query)
+            # Run in thread pool (Person A's code is CPU-bound with LLM calls)
+            person_a_result: PersonAFacetResult = await asyncio.to_thread(run_facet, facet_query)
 
-        # Transform to Person D's schema
-        person_d_result = _adapt_facet_result(person_a_result, topic)
+            # Transform to Person D's schema
+            person_d_result = _adapt_facet_result(person_a_result, topic)
 
-        yield person_d_result
+            yield person_d_result
+
+        except Exception as e:
+            # Per-facet failure isolation: log error and yield fallback result
+            logger.error(
+                f"Facet '{facet_id}' failed for topic '{topic}': {type(e).__name__}: {e}",
+                exc_info=True
+            )
+
+            # Yield fallback FacetResult so stream continues
+            yield FacetResult(
+                facet_id=facet_id,
+                status="unclear",
+                summary="Analysis unavailable for this facet — see logs",
+                pro_arguments=[],
+                con_arguments=[],
+                sources_examined=0,
+                quotes_verified=0
+            )
 
 
 def _adapt_facet_result(a_result: PersonAFacetResult, topic: str) -> FacetResult:
