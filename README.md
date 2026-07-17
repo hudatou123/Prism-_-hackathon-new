@@ -70,3 +70,16 @@ backend/.venv/bin/python -m pytest -q backend/tests
 ```
 
 The backend contract uses verified-only evidence, cumulative real counters, deterministic quote matching, strict public-URL fetching, bounded responses, and redacted stream errors.
+
+---
+
+## Team
+
+Prism was built at HackwithSeattle 2.0 by:
+
+- **Haogeng Hu** ([@hudatou123](https://github.com/hudatou123)) — Pipeline & Agents Lead
+- **Jay Shivanna** _(GitHub handle pending)_ — Prompts & Judge Design
+- **Graeme Huntley** ([@NovusViduus](https://github.com/NovusViduus)) — Frontend, UI & Integration Lead
+- **Lingli Yang** ([@lingli8](https://github.com/lingli8)) — Backend & Integration
+
+Built in a 6-hour sprint. Grounded in [Linkup](https://linkup.so) for live web evidence, orchestrated on [RocketRide Cloud](https://cloud.rocketride.ai), and stitched together over too much coffee.
