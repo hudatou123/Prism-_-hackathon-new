@@ -1,5 +1,7 @@
 # Prism Backend Bootstrap Report
 
+> 📎 **Historical snapshot (2026-07-17).** This report captures the backend scaffold as first bootstrapped and does not reflect the current code. Since then the backend gained SSRF-hardened grounding, `settings.py`, and the `tavily`/`agent` pipelines; the `real_pipeline`/RocketRide integration described here was removed. For current behaviour see `README.md` and `backend/README.md`.
+
 **Date:** 2026-07-17  
 **Person:** D (Backend ownership)  
 **Spec:** Person_D_Backend_Spec.md

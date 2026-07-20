@@ -1,5 +1,7 @@
 # Person D: Real Pipeline Integration Report
 
+> 📎 **Historical snapshot (2026-07-17) — superseded.** This documents an earlier attempt to bridge the `pipeline/` multi-agent engine into the backend via `real_pipeline.py` and a schema adapter. That integration was later removed: `backend/prism/real_pipeline.py` is now a deprecation shim, and `agent` mode runs the deterministic Tavily path, not the Pro/Con/Judge engine. The `pipeline/` engine is currently standalone and unconnected. For what actually ships, see `README.md`.
+
 **Date:** 2026-07-17  
 **Branch:** `person-d/integrate-real-pipeline`  
 **Commit:** `3d9ec98`  

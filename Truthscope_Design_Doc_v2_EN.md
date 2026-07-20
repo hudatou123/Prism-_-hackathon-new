@@ -4,6 +4,8 @@
 >
 > **v2 note:** This is the original design doc with review fixes folded in. Every change is marked with a 🔧 callout explaining what changed and why. Unmarked text is unchanged from v1.
 
+> ⚠️ **Implementation status (read first).** This is the *design intent*, not a description of the shipped system. The running app is a deterministic, grounded-by-construction pipeline (Tavily search + literal fetched-page quotes + a deterministic quote-grep gate + rule-based verdict), with one optional Anthropic "early read" sentence in `agent` mode. Two headline ideas below are **not wired into the running service**: the **multi-agent Pro/Con/Judge debate engine** ships as standalone, unconnected code under `pipeline/`, and **RocketRide Cloud** has only an auth + `.pipe` connectivity smoke test — the fact-checking graph does not run on it. See `README.md` for what actually ships.
+
 ---
 
 ## Changelog at a Glance
